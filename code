@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Capturar Fotos con la Cámara Web</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            justify-content: center;
+        }
+        video, canvas {
+            width: 100%;
+            max-width: 640px;
+            height: auto;
+            margin: 10px;
+        }
+        button, select {
+            padding: 10px 20px;
+            font-size: 16px;
+            margin: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Capturar Fotos con la Cámara Web</h1>
+    <video id="video" autoplay playsinline></video>
+    <select id="cameraSelect">
+        <option value="user">Cámara Frontal</option>
+        <option value="environment">Cámara Trasera</option>
+    </select>
+    <button id="start">Iniciar Captura Automática</button>
+    <button id="download" style="display:none;">Descargar Fotos</button>
+    <canvas id="canvas" style="display:none;"></canvas>
+
+    <script>
+        const video = document.getElementById('video');
+        const cameraSelect = document.getElementById('cameraSelect');
+        const startButton = document.getElementById('start');
+        const downloadButton = document.getElementById('download');
+        const canvas = document.getElementById('canvas');
+        const context = canvas.getContext('2d');
+        let photos = [];
+
+        async function initCamera(facingMode) {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: { exact: facingMode }
+                    }
+                });
+                video.srcObject = stream;
+            } catch (error) {
+                console.error('Error al acceder a la cámara: ', error);
+                alert('No se pudo acceder a la cámara. Verifique los permisos y la disponibilidad de la cámara.');
+            }
+        }
+
+        startButton.addEventListener('click', () => {
+            const facingMode = cameraSelect.value;
+            initCamera(facingMode).then(() => {
+                photos = [];
+                let count = 0;
+                const intervalId = setInterval(() => {
+                    if (count < 10) {
+                        canvas.width = video.videoWidth;
+                        canvas.height = video.videoHeight;
+                        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                        photos.push(canvas.toDataURL('image/png'));
+                        count++;
+                    } else {
+                        clearInterval(intervalId);
+                        downloadButton.style.display = 'block';
+                    }
+                }, 1000); // Capturar una foto cada segundo
+            });
+        });
+
+        downloadButton.addEventListener('click', () => {
+            const zip = new JSZip();
+            photos.forEach((photo, index) => {
+                const imgData = photo.replace(/^data:image\/(png|jpg);base64,/, "");
+                zip.file(`photo${index + 1}.png`, imgData, { base64: true });
+            });
+            zip.generateAsync({ type: "blob" })
+                .then(content => {
+                    const a = document.createElement('a');
+                    a.href = URL.createObjectURL(content);
+                    a.download = "photos.zip";
+                    a.click();
+                });
+        });
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+</body>
+</html>
